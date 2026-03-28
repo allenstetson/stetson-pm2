@@ -147,19 +147,30 @@ psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE projects_db TO projects_us
 
 ### Database Migrations (Alembic)
 
-Alembic is configured for schema management. (Currently, no migrations exist.)
+Alembic is configured for schema management. The initial schema migration (`a1b2c3d4e5f6`) creates all core tables and indexes.
 
-#### Create a new migration
+**Migrations run automatically** when the backend Docker container starts (`alembic upgrade head` is prepended to the startup command). For local development without Docker, run manually:
+
+#### Apply all pending migrations
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+#### Create a new migration after changing models
 
 ```bash
 cd backend
 alembic revision --autogenerate -m "Description of changes"
+# Review the generated file in alembic/versions/ before applying
+alembic upgrade head
 ```
 
-#### Apply migrations
+#### Roll back one migration
 
 ```bash
-alembic upgrade head
+alembic downgrade -1
 ```
 
 #### View migration history
@@ -168,6 +179,20 @@ alembic upgrade head
 alembic current
 alembic history
 ```
+
+#### Seed the database with sample data
+
+```bash
+# Local venv (from backend/ directory)
+python scripts/seed.py
+
+# Inside the running Docker container
+docker exec projects_backend python scripts/seed.py
+```
+
+The seed script inserts 5 realistic fake projects (home, school, work categories;
+family/work/sensitive visibility; various media types). Safe to run multiple
+times — skips if data already exists.
 
 ---
 
@@ -218,11 +243,28 @@ ENVIRONMENT=development
 ```
 backend/
 ├── app/
-│   └── main.py              # FastAPI application entry point
+│   ├── main.py              # FastAPI application entry point
+│   ├── config.py            # Pydantic settings (DATABASE_URL etc.)
+│   ├── database.py          # SQLAlchemy engine + session factory
+│   └── models/              # ORM models
+│       ├── __init__.py      # Re-exports all models
+│       ├── base.py          # Base + TimestampMixin
+│       ├── project.py       # Project model
+│       ├── tag.py           # Tag + ProjectTag models
+│       ├── contributor.py   # Contributor + ProjectContributor models
+│       └── project_link.py  # ProjectLink model
+├── alembic/                 # Alembic migration environment
+│   ├── env.py               # Migration runner (reads DATABASE_URL from app config)
+│   ├── script.py.mako       # Template for new migration files
+│   └── versions/            # Migration files
+│       └── a1b2c3d4e5f6_initial_schema.py
+├── scripts/
+│   └── seed.py              # Populates DB with sample projects
+├── alembic.ini              # Alembic configuration
 ├── requirements.txt         # Python dependencies
 ├── Dockerfile               # Docker image definition
-├── .env.example            # Environment template
-└── .gitignore              # Git ignore patterns
+├── .env.example             # Environment template
+└── .gitignore               # Git ignore patterns
 
 frontend/
 ├── src/

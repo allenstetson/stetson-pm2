@@ -13,9 +13,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY alembic.ini .
+COPY scripts/ ./scripts/
 
 # Expose port
 EXPOSE 8000
 
-# Run FastAPI app with uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run migrations then start the API server.
+# Migrations are idempotent — safe to run on every container start.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

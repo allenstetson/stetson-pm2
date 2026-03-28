@@ -1,5 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+from sqlalchemy import text
+
+from app.config import settings
+from app.database import engine
+import app.models  # noqa: F401 — registers all ORM models with SQLAlchemy metadata
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Home Projects API",
@@ -15,6 +23,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def startup_event():
+    """Verify database connection on startup."""
+    if engine is not None:
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+                logger.info("✅ Database connection successful")
+        except Exception as e:
+            logger.warning(f"⚠️  Database connection failed: {e}. Continuing without DB.")
+    else:
+        logger.warning("⚠️  Database engine not initialized")
 
 
 @app.get("/health")

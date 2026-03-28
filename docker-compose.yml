@@ -30,12 +30,14 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER:-projects_user}:${DB_PASSWORD:-projects_password}@db:5432/${DB_NAME:-projects_db}
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      PYTHONPATH: /app
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Runs migrations on every start (alembic upgrade is idempotent), then
+    # launches the API server.  Override with COMMAND env var if needed.
+    command: >-
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   # Frontend (Nginx)
   frontend:

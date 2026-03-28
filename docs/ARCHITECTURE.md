@@ -120,7 +120,7 @@ Synology NAS
 **Core Modules**:
 - `app/main.py`: FastAPI app, CORS, health endpoint
 - `app/routes/` (future): Project routes, search routes, admin routes
-- `app/models/` (future): SQLAlchemy ORM models
+- `app/models/`: SQLAlchemy ORM models (implemented in Chunk 4)
 - `app/schemas/` (future): Pydantic request/response schemas
 - `app/services/` (future): Business logic (project scanning, permission checks, etc.)
 
@@ -143,15 +143,38 @@ Synology NAS
 
 **Responsibility**: Persistent storage, transactions, querying
 
-**Core Tables** (to be created in Chunk 4):
-- `projects` — id, name, category, path, created_at, modified_at, archived
-- `project_metadata` — tags, media_types, file_count, disk_usage, last_sync
-- `backup_info` — last_backup_date, backup_host, last_sync_date
-- `users` (Chunk 11) — id, username, email, role, password_hash
-- `project_visibility` (Chunk 11) — project_id, visibility_label
-- (More as features are added)
+**Schema** (implemented in Chunk 4 — see migration `a1b2c3d4e5f6_initial_schema`):
 
-**Migrations**: Alembic manages schema versions
+| Table | Purpose |
+|---|---|
+| `projects` | Core entity: folder name, NAS path, category, visibility, media types, backup state |
+| `tags` | Labels applied to projects (many-to-many via `project_tags`) |
+| `project_tags` | Join table: projects ↔ tags |
+| `contributors` | People associated with projects (many-to-many via `project_contributors`) |
+| `project_contributors` | Join table: projects ↔ contributors, with optional role |
+| `project_links` | External URLs attached to a project |
+
+**Key `projects` columns**:
+- `id` — UUID PK (`gen_random_uuid()`)
+- `category` — TEXT (home \| school \| work \| free-form)
+- `visibility` — TEXT (family \| school \| work \| sensitive)
+- `media_types` — TEXT[] array (photo \| video \| document \| audio \| other)
+- `search_vector` — `tsvector GENERATED ALWAYS AS STORED` (auto-indexed from name + notes + folder_name)
+- `archived`, `changed_since_backup` — BOOLEAN flags
+- `naming_convention_valid` — BOOLEAN, populated by scanner (Chunk 9)
+
+**Index strategy**:
+- B-tree indexes on `category`, `archived`, `visibility`, `project_date`, `changed_since_backup`, `last_scanned_at`
+- GIN index on `search_vector` — full-text search (`@@` operator)
+- GIN trigram index on `name` (`pg_trgm`) — fuzzy / substring name search
+- GIN index on `media_types` array — containment filter (`@>` operator)
+- B-tree indexes on all FK columns in join tables
+
+**Future tables** (deferred):
+- `users` (Chunk 11) — id, username, email, role, password_hash
+- `scan_jobs` (Chunk 6) — scanner run history
+
+**Migrations**: Alembic manages schema versions (`backend/alembic/`)
 
 ---
 
