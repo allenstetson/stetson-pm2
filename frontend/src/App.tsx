@@ -6,7 +6,6 @@ import {
   Drawer,
   Paper,
 } from '@mui/material'
-import './App.css'
 
 const DRAWER_WIDTH = 240
 
