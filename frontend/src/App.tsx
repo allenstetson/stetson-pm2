@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   Box,
   AppBar,
@@ -6,9 +5,6 @@ import {
   Typography,
   Drawer,
   Paper,
-  Container,
-  Grid,
-  Footer,
 } from '@mui/material'
 import './App.css'
 
