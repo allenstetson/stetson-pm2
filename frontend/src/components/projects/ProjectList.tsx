@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import { fetchProjects } from '../../api/projects';
 import { ProjectSummary } from '../../types/project';
 import { ProjectCard } from './ProjectCard';
+import { SearchFilterBar } from './SearchFilterBar';
+
+const DEBOUNCE_MS = 300;
 
 interface ProjectListProps {
   selectedProjectId: string | null;
@@ -15,6 +18,23 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [searchText, setSearchText] = useState('');
+  const [category, setCategory] = useState<string | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search text
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = (value: string) => {
+    setSearchText(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedSearch(value), DEBOUNCE_MS);
+  };
+
+  const handleCategoryChange = (value: string | null) => {
+    setCategory(value);
+    onSelectProject(null);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -22,7 +42,10 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchProjects();
+        const data = await fetchProjects({
+          q: debouncedSearch || undefined,
+          category: category || undefined,
+        });
         if (!cancelled) {
           setProjects(data.items);
           setTotal(data.total);
@@ -38,49 +61,50 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
 
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [debouncedSearch, category]);
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" py={6}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        Could not load projects: {error}
-      </Alert>
-    );
-  }
-
-  if (projects.length === 0) {
-    return (
-      <Box py={6} textAlign="center">
-        <Typography variant="body1" color="text.secondary">
-          No projects found.
-        </Typography>
-      </Box>
-    );
-  }
+  const hasFilters = debouncedSearch.trim() !== '' || category !== null;
 
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-        {total} project{total !== 1 ? 's' : ''}
-      </Typography>
-      {projects.map((project) => (
-        <ProjectCard
-          key={project.id}
-          project={project}
-          selected={project.id === selectedProjectId}
-          onSelect={() =>
-            onSelectProject(project.id === selectedProjectId ? null : project)
-          }
-        />
-      ))}
+      <SearchFilterBar
+        searchText={searchText}
+        category={category}
+        onSearchChange={handleSearchChange}
+        onCategoryChange={handleCategoryChange}
+      />
+
+      {loading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" py={6}>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          Could not load projects: {error}
+        </Alert>
+      ) : projects.length === 0 ? (
+        <Box py={6} textAlign="center">
+          <Typography variant="body1" color="text.secondary">
+            {hasFilters ? 'No projects match your search.' : 'No projects found.'}
+          </Typography>
+        </Box>
+      ) : (
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+            {total} project{total !== 1 ? 's' : ''}
+          </Typography>
+          {projects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              selected={project.id === selectedProjectId}
+              onSelect={() =>
+                onSelectProject(project.id === selectedProjectId ? null : project)
+              }
+            />
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }
