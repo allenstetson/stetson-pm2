@@ -31,6 +31,12 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-projects_user}:${DB_PASSWORD:-projects_password}@db:5432/${DB_NAME:-projects_db}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       PYTHONPATH: /app
+      # Mount ./sample_projects (or a real NAS share) to /mnt/projects.
+      # Swap the volume below or set PROJECTS_ROOT to a different path for production.
+      PROJECTS_ROOT: ${PROJECTS_ROOT:-/mnt/projects}
+      NAS_ROOT: ${NAS_ROOT:-/volume1/Projects}
+    volumes:
+      - ./sample_projects:/mnt/projects:ro
     depends_on:
       db:
         condition: service_healthy

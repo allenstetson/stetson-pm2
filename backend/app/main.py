@@ -7,6 +7,7 @@ from app.config import settings
 from app.database import engine
 import app.models  # noqa: F401 — registers all ORM models with SQLAlchemy metadata
 from app.routes import projects as projects_router
+from app.routes import scan as scan_router
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ app.add_middleware(
 
 
 app.include_router(projects_router.router, prefix="/api")
+app.include_router(scan_router.router, prefix="/api")
 
 
 @app.on_event("startup")

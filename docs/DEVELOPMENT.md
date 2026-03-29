@@ -196,6 +196,103 @@ times — skips if data already exists.
 
 ---
 
+### Scanner (Chunk 6+)
+
+The scanner walks the `projects_root` directory for `category/project_folder` pairs
+and upserts `Project` records into the database.
+
+#### Trigger a scan via HTTP
+
+```bash
+curl -X POST http://localhost:8000/api/scan
+# or
+Invoke-RestMethod -Method POST -Uri "http://localhost:8000/api/scan"
+```
+
+Response:
+```json
+{ "created": 5, "updated": 3, "skipped": 0, "errors": [] }
+```
+
+Scanning is **idempotent**: running it twice always yields `created=0` on the second run.
+
+#### How project directories must be structured
+
+```
+projects_root/          ← PROJECTS_ROOT env var; mounted into the container
+  home/                 ← category (top-level subdirectory)
+    2024_12_25_christmasMorning/   ← project folder (YYYY_MM_DD prefix)
+    2024_04_cvhs_music_year_end/   ← project folder (YYYY_MM prefix → day=1)
+    2016_halloween/                ← project folder (YYYY prefix → mtime day/month)
+    legoAnimation/                 ← project folder (free-form → mtime date)
+  school/
+    2023_09_01_backToSchool_jonah/
+  work/
+    2025_01_10_portfolioWebsite/
+```
+
+Loose files (not directories) in any level are silently skipped.
+
+#### Date-parsing cascade
+
+| Folder name pattern | Parsed date |
+|---|---|
+| `YYYY_MM_DD_…` | Exact date from folder name |
+| `YYYY_MM_…` | First day of that month |
+| `YYYY_…` | Year from folder; month+day from directory `mtime` |
+| Free-form | Full date from directory `mtime` |
+
+#### Swapping the project root (local dev → production)
+
+Docker Compose binds `./sample_projects` to `/mnt/projects` by default:
+
+```yaml
+# docker-compose.yml
+volumes:
+  - ./sample_projects:/mnt/projects:ro
+environment:
+  PROJECTS_ROOT: /mnt/projects
+  NAS_ROOT: /volume1/Projects
+```
+
+To point at a real NAS share, override both env vars without changing code:
+
+```yaml
+volumes:
+  - /run/media/nas/Projects:/mnt/projects:ro
+environment:
+  PROJECTS_ROOT: /mnt/projects
+  NAS_ROOT: /volume1/Projects
+```
+
+On Synology DSM (no Docker Compose override needed): set `PROJECTS_ROOT=/volume1/Projects`.
+
+#### Windows + Docker Desktop (WSL2 back-end) limitation
+
+Docker Desktop on Windows with the WSL2 back-end **cannot bind-mount mapped
+network drives** (e.g. `Y:\`). The bind mount will appear empty inside the
+container. Workarounds:
+
+1. **Use `sample_projects/` for dev** — the `./sample_projects` bind mount works
+   only if the project itself lives on a local drive (C:, D:, etc.), not on a
+   network share. If your project is on a network share, copy `sample_projects/`
+   to a local drive and adjust the `docker-compose.yml` volume source.
+2. **Switch Docker Desktop to Hyper-V back-end** — Hyper-V can expose network
+   drives. Requires Windows Pro/Enterprise and a Docker Desktop restart.
+3. **Run the scan from the host directly** — install the backend venv, set
+   `PROJECTS_ROOT` to the actual Windows path (e.g. `Y:\home`), and run:
+   ```powershell
+   python -c "
+   from app.database import SessionLocal
+   from app.scanner import scan_projects
+   db = SessionLocal()
+   r = scan_projects('Y:/home', db, nas_root='//NAS/home')
+   db.commit(); print(r)
+   "
+   ```
+
+---
+
 ### Environment Variables Reference
 
 #### Backend (.env)
@@ -209,6 +306,10 @@ API_PORT=8000                 # Listen port
 
 # Environment
 ENVIRONMENT=development       # development, testing, production
+
+# Scanner (Chunk 6+)
+PROJECTS_ROOT=/mnt/projects   # Path inside the container to the project root
+NAS_ROOT=/volume1/Projects    # Canonical NAS path stored in project records
 ```
 
 #### Frontend (.env.local)
@@ -234,6 +335,10 @@ FRONTEND_PORT=3000
 
 # Environment
 ENVIRONMENT=development
+
+# Scanner — override to mount a real NAS share instead of sample_projects/
+# PROJECTS_ROOT=/mnt/projects
+# NAS_ROOT=/volume1/Projects
 ```
 
 ---
@@ -244,15 +349,23 @@ ENVIRONMENT=development
 backend/
 ├── app/
 │   ├── main.py              # FastAPI application entry point
-│   ├── config.py            # Pydantic settings (DATABASE_URL etc.)
+│   ├── config.py            # Pydantic settings (DATABASE_URL, PROJECTS_ROOT, etc.)
 │   ├── database.py          # SQLAlchemy engine + session factory
-│   └── models/              # ORM models
-│       ├── __init__.py      # Re-exports all models
-│       ├── base.py          # Base + TimestampMixin
-│       ├── project.py       # Project model
-│       ├── tag.py           # Tag + ProjectTag models
-│       ├── contributor.py   # Contributor + ProjectContributor models
-│       └── project_link.py  # ProjectLink model
+│   ├── models/              # ORM models
+│   │   ├── __init__.py      # Re-exports all models
+│   │   ├── base.py          # Base + TimestampMixin
+│   │   ├── project.py       # Project model
+│   │   ├── tag.py           # Tag + ProjectTag models
+│   │   ├── contributor.py   # Contributor + ProjectContributor models
+│   │   └── project_link.py  # ProjectLink model
+│   ├── schemas/             # Pydantic response schemas
+│   │   └── project.py       # ProjectSummary, ProjectListResponse
+│   ├── routes/              # FastAPI routers
+│   │   ├── projects.py      # GET /api/projects
+│   │   └── scan.py          # POST /api/scan
+│   └── scanner/             # NAS directory scanner
+│       ├── __init__.py
+│       └── scanner.py       # parse_project_date, humanize_name, scan_projects
 ├── alembic/                 # Alembic migration environment
 │   ├── env.py               # Migration runner (reads DATABASE_URL from app config)
 │   ├── script.py.mako       # Template for new migration files
@@ -263,22 +376,34 @@ backend/
 ├── alembic.ini              # Alembic configuration
 ├── requirements.txt         # Python dependencies
 ├── Dockerfile               # Docker image definition
-├── .env.example             # Environment template
 └── .gitignore               # Git ignore patterns
 
 frontend/
 ├── src/
 │   ├── App.tsx             # Main React component
 │   ├── main.tsx            # React DOM entry point
-│   └── index.css           # Global styles
+│   ├── index.css           # Global styles
+│   ├── api/
+│   │   └── projects.ts     # fetchProjects() — calls GET /api/projects
+│   ├── types/
+│   │   └── project.ts      # TypeScript types for ProjectSummary
+│   └── components/
+│       ├── layout/          # Header, Sidebar, MainContent, DetailsPanel, Footer
+│       └── projects/
+│           ├── ProjectCard.tsx
+│           └── ProjectList.tsx
 ├── index.html              # HTML template
 ├── package.json            # npm dependencies and scripts
 ├── tsconfig.json           # TypeScript configuration
 ├── vite.config.ts          # Vite configuration
 ├── Dockerfile              # Production Docker image
-├── nginx.conf              # Nginx configuration
-├── .env.example            # Environment template
-└── .gitignore              # Git ignore patterns
+└── nginx.conf              # Nginx configuration
+
+sample_projects/            # Committed sample directory tree for local dev
+├── README.md               # How to use and swap the sample data
+├── home/                   # Category directories
+├── school/
+└── work/
 ```
 
 ---
