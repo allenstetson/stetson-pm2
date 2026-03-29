@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Box,
+  Button,
   Chip,
   CircularProgress,
   Divider,
@@ -163,20 +164,48 @@ export function DetailsPanel({ selectedProject }: DetailsPanelProps) {
                 </Tooltip>
                 {detail.notes && <Row label="Notes" value={detail.notes} />}
                 <Row label="Archived" value={detail.archived ? 'Yes' : 'No'} />
-                <Row
-                  label="Naming Convention"
-                  value={
-                    detail.naming_convention_valid == null
-                      ? '—'
-                      : detail.naming_convention_valid
-                      ? '✓ Valid'
-                      : '✗ Invalid'
-                  }
-                />
                 <Row label="Last Scanned" value={formatDatetime(detail.last_scanned_at)} />
-                <Row label="Last Backup" value={formatDatetime(detail.last_backup_at)} />
-                {detail.backup_host && <Row label="Backup Host" value={detail.backup_host} />}
-                <Row label="Changed Since Backup" value={detail.changed_since_backup ? 'Yes' : 'No'} />
+
+                <Divider sx={{ my: 1 }} />
+
+                {/* ── Backup section ── */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Backup
+                  </Typography>
+                  <Stack spacing={1} mt={1}>
+                    <Row label="Last Backup" value={formatDatetime(detail.last_backup_at) === '—' ? 'Never' : formatDatetime(detail.last_backup_at)} />
+                    {detail.backup_host && <Row label="Backup Host" value={detail.backup_host} />}
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        Status
+                      </Typography>
+                      <Box mt={0.5}>
+                        {detail.last_backup_at === null ? (
+                          <Chip label="Never backed up" size="small" color="default" variant="outlined" />
+                        ) : detail.changed_since_backup ? (
+                          <Chip label="Changed since last backup" size="small" color="warning" />
+                        ) : (
+                          <Chip label="Up to date" size="small" color="success" variant="outlined" />
+                        )}
+                      </Box>
+                    </Box>
+                    <Tooltip title="Coming soon" placement="bottom-start">
+                      <span>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          disabled
+                          sx={{ mt: 0.5 }}
+                        >
+                          Record Backup
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  </Stack>
+                </Box>
+
+                <Divider sx={{ my: 1 }} />
                 <Row label="Created" value={formatDatetime(detail.created_at)} />
                 <Row label="Updated" value={formatDatetime(detail.updated_at)} />
               </>

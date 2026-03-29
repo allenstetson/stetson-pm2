@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProjectSummary(BaseModel):
@@ -25,6 +25,7 @@ class ProjectSummary(BaseModel):
     folder_name: str
     file_count: Optional[int]
     disk_usage_bytes: Optional[int]
+    changed_since_backup: bool
 
 
 class ProjectDetail(ProjectSummary):
@@ -42,9 +43,9 @@ class ProjectDetail(ProjectSummary):
     notes: Optional[str]
     naming_convention_valid: Optional[bool]
     last_scanned_at: Optional[datetime]
+    files_changed_at: Optional[datetime]
     last_backup_at: Optional[datetime]
     backup_host: Optional[str]
-    changed_since_backup: bool
     created_at: datetime
     updated_at: datetime
 
@@ -54,3 +55,9 @@ class ProjectListResponse(BaseModel):
 
     items: List[ProjectSummary]
     total: int
+
+
+class BackupRecord(BaseModel):
+    """Request body for POST /projects/{id}/backup."""
+
+    backup_host: str = Field(min_length=1, max_length=200)

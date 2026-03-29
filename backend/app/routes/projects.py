@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.project import Project
-from app.schemas.project import ProjectDetail, ProjectListResponse, ProjectSummary
+from app.schemas.project import BackupRecord, ProjectDetail, ProjectListResponse, ProjectSummary
 
 router = APIRouter(tags=["projects"])
 
@@ -18,6 +19,7 @@ def list_projects(
     limit: int = Query(default=100, ge=1, le=500, description="Max records to return"),
     q: Optional[str] = Query(default=None, description="Full-text search query"),
     category: Optional[str] = Query(default=None, description="Filter by category"),
+    changed_since_backup: Optional[bool] = Query(default=None, description="Filter to projects changed since their last backup"),
     db: Session = Depends(get_db),
 ) -> ProjectListResponse:
     """
@@ -43,6 +45,9 @@ def list_projects(
 
     if category and category.strip():
         query = query.filter(Project.category == category.strip())
+
+    if changed_since_backup is not None:
+        query = query.filter(Project.changed_since_backup == changed_since_backup)
 
     total = query.count()
 
@@ -73,4 +78,28 @@ def get_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    return ProjectDetail.model_validate(project)
+
+
+@router.post("/projects/{project_id}/backup", response_model=ProjectDetail)
+def record_backup(
+    project_id: UUID,
+    body: BackupRecord,
+    db: Session = Depends(get_db),
+) -> ProjectDetail:
+    """
+    Record that a manual backup was performed.
+
+    Sets last_backup_at to now (UTC), stores backup_host, and clears the
+    changed_since_backup flag.  The flag will be re-evaluated on the next
+    scan if files have been modified since this timestamp.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project.last_backup_at = datetime.now(tz=timezone.utc)
+    project.backup_host = body.backup_host
+    project.changed_since_backup = False
+    db.commit()
+    db.refresh(project)
     return ProjectDetail.model_validate(project)

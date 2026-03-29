@@ -20,6 +20,7 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
 
   const [searchText, setSearchText] = useState('');
   const [category, setCategory] = useState<string | null>(null);
+  const [changedSinceBackup, setChangedSinceBackup] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Debounce search text
@@ -35,6 +36,11 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
     onSelectProject(null);
   };
 
+  const handleChangedSinceBackupChange = (value: boolean) => {
+    setChangedSinceBackup(value);
+    onSelectProject(null);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -45,6 +51,7 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
         const data = await fetchProjects({
           q: debouncedSearch || undefined,
           category: category || undefined,
+          changedSinceBackup: changedSinceBackup || undefined,
         });
         if (!cancelled) {
           setProjects(data.items);
@@ -61,17 +68,19 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
 
     load();
     return () => { cancelled = true; };
-  }, [debouncedSearch, category]);
+  }, [debouncedSearch, category, changedSinceBackup]);
 
-  const hasFilters = debouncedSearch.trim() !== '' || category !== null;
+  const hasFilters = debouncedSearch.trim() !== '' || category !== null || changedSinceBackup;
 
   return (
     <Box>
       <SearchFilterBar
         searchText={searchText}
         category={category}
+        changedSinceBackup={changedSinceBackup}
         onSearchChange={handleSearchChange}
         onCategoryChange={handleCategoryChange}
+        onChangedSinceBackupChange={handleChangedSinceBackupChange}
       />
 
       {loading ? (

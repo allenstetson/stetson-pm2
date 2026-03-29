@@ -55,6 +55,9 @@ class Project(Base, TimestampMixin):
     # Populated in Chunk 9 by naming convention checker
     naming_convention_valid = Column(Boolean, nullable=True)
     last_scanned_at = Column(DateTime(timezone=True), nullable=True)
+    # Timestamp of the most recently modified file inside the project directory.
+    # Computed by the scanner from file mtimes; used to derive changed_since_backup.
+    files_changed_at = Column(DateTime(timezone=True), nullable=True)
 
     # --- Backup tracking -------------------------------------------------
     last_backup_at = Column(DateTime(timezone=True), nullable=True)

@@ -160,23 +160,31 @@ def humanize_name(folder_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _collect_stats(project_path: Path):
-    """Return (file_count, disk_usage_bytes, sorted media_type list)."""
+    """Return (file_count, disk_usage_bytes, sorted media_type list, files_changed_at)."""
     file_count = 0
     disk_usage = 0
     type_set: set[str] = set()
+    max_mtime: Optional[float] = None
 
     for root, _dirs, files in os.walk(project_path):
         for fname in files:
             fp = Path(root) / fname
             try:
-                sz = fp.stat().st_size
+                st = fp.stat()
+                sz = st.st_size
+                if max_mtime is None or st.st_mtime > max_mtime:
+                    max_mtime = st.st_mtime
             except OSError:
                 sz = 0
             file_count += 1
             disk_usage += sz
             type_set.add(_classify_extension(fp.suffix))
 
-    return file_count, disk_usage, sorted(type_set)
+    files_changed_at: Optional[datetime] = None
+    if max_mtime is not None:
+        files_changed_at = datetime.fromtimestamp(max_mtime, tz=timezone.utc)
+
+    return file_count, disk_usage, sorted(type_set), files_changed_at
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +240,7 @@ def scan_projects(root: str, db: Session, nas_root: str = "/volume1/Projects") -
             try:
                 project_date = parse_project_date(folder_name, project_entry)
                 name = humanize_name(folder_name)
-                file_count, disk_usage_bytes, media_types = _collect_stats(project_entry)
+                file_count, disk_usage_bytes, media_types, files_changed_at = _collect_stats(project_entry)
 
                 # Upsert on (folder_name, category)
                 project = (
@@ -254,7 +262,9 @@ def scan_projects(root: str, db: Session, nas_root: str = "/volume1/Projects") -
                         file_count=file_count,
                         disk_usage_bytes=disk_usage_bytes,
                         media_types=media_types,
+                        files_changed_at=files_changed_at,
                         last_scanned_at=now,
+                        changed_since_backup=False,
                     )
                     db.add(project)
                     result.created += 1
@@ -267,7 +277,14 @@ def scan_projects(root: str, db: Session, nas_root: str = "/volume1/Projects") -
                     project.file_count = file_count
                     project.disk_usage_bytes = disk_usage_bytes
                     project.media_types = media_types
+                    project.files_changed_at = files_changed_at
                     project.last_scanned_at = now
+                    # Recompute changed_since_backup: True only when files are newer
+                    # than the last recorded backup.  Never-backed-up projects stay False.
+                    if project.last_backup_at is not None and files_changed_at is not None:
+                        project.changed_since_backup = files_changed_at > project.last_backup_at
+                    else:
+                        project.changed_since_backup = False
                     result.updated += 1
                     logger.info("Updated project: %s / %s", category, folder_name)
 

@@ -108,6 +108,19 @@ export function ProjectCard({ project, selected, onSelect }: ProjectCardProps) {
             ))}
           </Stack>
         )}
+
+        {/* Backup state badge */}
+        {project.changed_since_backup && (
+          <Stack direction="row" gap={0.5} mt={0.5}>
+            <Chip
+              label="Changed since backup"
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ fontSize: '0.7rem' }}
+            />
+          </Stack>
+        )}
       </CardContent>
       </CardActionArea>
     </Card>

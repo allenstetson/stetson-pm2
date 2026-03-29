@@ -1,4 +1,4 @@
-import { InputAdornment, Stack, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { FormControlLabel, InputAdornment, Stack, Switch, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 
 const CATEGORIES = ['home', 'school', 'work'] as const;
@@ -6,15 +6,19 @@ const CATEGORIES = ['home', 'school', 'work'] as const;
 interface SearchFilterBarProps {
   searchText: string;
   category: string | null;
+  changedSinceBackup: boolean;
   onSearchChange: (value: string) => void;
   onCategoryChange: (value: string | null) => void;
+  onChangedSinceBackupChange: (value: boolean) => void;
 }
 
 export function SearchFilterBar({
   searchText,
   category,
+  changedSinceBackup,
   onSearchChange,
   onCategoryChange,
+  onChangedSinceBackupChange,
 }: SearchFilterBarProps) {
   const handleCategory = (_: React.MouseEvent<HTMLElement>, value: string | null) => {
     onCategoryChange(value);
@@ -50,6 +54,18 @@ export function SearchFilterBar({
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
+
+      <FormControlLabel
+        control={
+          <Switch
+            size="small"
+            checked={changedSinceBackup}
+            onChange={(e) => onChangedSinceBackupChange(e.target.checked)}
+          />
+        }
+        label="Changed since backup"
+        sx={{ ml: 0.5, whiteSpace: 'nowrap' }}
+      />
     </Stack>
   );
 }

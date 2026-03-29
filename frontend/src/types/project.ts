@@ -8,6 +8,7 @@ export interface ProjectSummary {
   folder_name: string;
   file_count: number | null;
   disk_usage_bytes: number | null;
+  changed_since_backup: boolean;
 }
 
 export interface ProjectDetail extends ProjectSummary {
@@ -18,9 +19,9 @@ export interface ProjectDetail extends ProjectSummary {
   notes: string | null;
   naming_convention_valid: boolean | null;
   last_scanned_at: string | null;  // ISO datetime string
+  files_changed_at: string | null; // ISO datetime string
   last_backup_at: string | null;   // ISO datetime string
   backup_host: string | null;
-  changed_since_backup: boolean;
   created_at: string;
   updated_at: string;
 }
