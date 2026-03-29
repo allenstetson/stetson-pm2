@@ -5,12 +5,19 @@ import { Sidebar, PageType } from './components/layout/Sidebar'
 import { DetailsPanel } from './components/layout/DetailsPanel'
 import { Footer } from './components/layout/Footer'
 import { MainContent } from './components/panels/MainContent'
+import { ProjectSummary } from './types/project'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('projects')
+  const [selectedProject, setSelectedProject] = useState<ProjectSummary | null>(null)
 
   const handleNavigate = (page: PageType) => {
     setCurrentPage(page)
+    setSelectedProject(null)
+  }
+
+  const handleSelectProject = (project: ProjectSummary | null) => {
+    setSelectedProject(project)
   }
 
   return (
@@ -19,8 +26,12 @@ function App() {
 
       <Box sx={{ display: 'flex', flex: 1 }}>
         <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
-        <MainContent currentPage={currentPage} />
-        <DetailsPanel />
+        <MainContent
+          currentPage={currentPage}
+          selectedProjectId={selectedProject?.id ?? null}
+          onSelectProject={handleSelectProject}
+        />
+        <DetailsPanel selectedProject={selectedProject} />
       </Box>
 
       <Footer />

@@ -1,11 +1,12 @@
 from typing import List
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.project import Project
-from app.schemas.project import ProjectListResponse, ProjectSummary
+from app.schemas.project import ProjectDetail, ProjectListResponse, ProjectSummary
 
 router = APIRouter(tags=["projects"])
 
@@ -38,3 +39,19 @@ def list_projects(
         items=[ProjectSummary.model_validate(p) for p in projects],
         total=total,
     )
+
+
+@router.get("/projects/{project_id}", response_model=ProjectDetail)
+def get_project(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+) -> ProjectDetail:
+    """
+    Return the full detail record for a single project.
+
+    Returns 404 if the project does not exist.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return ProjectDetail.model_validate(project)

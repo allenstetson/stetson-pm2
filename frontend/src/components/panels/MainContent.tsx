@@ -1,9 +1,12 @@
 import { Box, Paper, Typography } from '@mui/material'
 import { PageType } from '../layout/Sidebar'
 import { ProjectList } from '../projects/ProjectList'
+import { ProjectSummary } from '../../types/project'
 
 interface MainContentProps {
   currentPage: PageType
+  selectedProjectId: string | null
+  onSelectProject: (project: ProjectSummary | null) => void
 }
 
 const PAGE_CONTENT: Record<PageType, { title: string; description: string }> =
@@ -26,7 +29,7 @@ const PAGE_CONTENT: Record<PageType, { title: string; description: string }> =
     },
   }
 
-export function MainContent({ currentPage }: MainContentProps) {
+export function MainContent({ currentPage, selectedProjectId, onSelectProject }: MainContentProps) {
   const content = PAGE_CONTENT[currentPage]
 
   return (
@@ -36,7 +39,10 @@ export function MainContent({ currentPage }: MainContentProps) {
           {content.title}
         </Typography>
         {currentPage === 'projects' ? (
-          <ProjectList />
+          <ProjectList
+            selectedProjectId={selectedProjectId}
+            onSelectProject={onSelectProject}
+          />
         ) : (
           <Typography variant="body2" color="textSecondary">
             {content.description}

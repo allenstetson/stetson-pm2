@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { ProjectListResponse } from '../types/project';
+import { ProjectDetail, ProjectListResponse } from '../types/project';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
@@ -23,4 +23,18 @@ export async function fetchProjects(
   }
 
   return response.json() as Promise<ProjectListResponse>;
+}
+
+export async function fetchProject(id: string): Promise<ProjectDetail> {
+  const url = `${API_BASE}/api/projects/${id}`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch project: ${response.status} ${response.statusText}`
+    );
+  }
+
+  return response.json() as Promise<ProjectDetail>;
 }

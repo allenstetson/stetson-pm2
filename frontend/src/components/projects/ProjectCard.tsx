@@ -1,6 +1,7 @@
 import { ProjectSummary } from '../../types/project';
 import {
   Card,
+  CardActionArea,
   CardContent,
   Chip,
   Stack,
@@ -9,6 +10,8 @@ import {
 
 interface ProjectCardProps {
   project: ProjectSummary;
+  selected: boolean;
+  onSelect: () => void;
 }
 
 const CATEGORY_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning'> = {
@@ -39,12 +42,22 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, selected, onSelect }: ProjectCardProps) {
   const categoryColor = CATEGORY_COLORS[project.category ?? ''] ?? 'default';
   const visibilityColor = VISIBILITY_COLORS[project.visibility] ?? 'default';
 
   return (
-    <Card variant="outlined" sx={{ mb: 1.5 }}>
+    <Card
+      variant="outlined"
+      sx={{
+        mb: 1.5,
+        borderLeft: selected ? '3px solid' : '1px solid',
+        borderLeftColor: selected ? 'primary.main' : 'divider',
+        boxShadow: selected ? 3 : 0,
+        transition: 'box-shadow 0.15s ease, border-left-color 0.15s ease',
+      }}
+    >
+      <CardActionArea onClick={onSelect} sx={{ display: 'block' }}>
       <CardContent sx={{ pb: '12px !important' }}>
         {/* Header row: name + visibility badge */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={0.5}>
@@ -96,6 +109,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
           </Stack>
         )}
       </CardContent>
+      </CardActionArea>
     </Card>
   );
 }

@@ -4,7 +4,12 @@ import { fetchProjects } from '../../api/projects';
 import { ProjectSummary } from '../../types/project';
 import { ProjectCard } from './ProjectCard';
 
-export function ProjectList() {
+interface ProjectListProps {
+  selectedProjectId: string | null;
+  onSelectProject: (project: ProjectSummary | null) => void;
+}
+
+export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListProps) {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -67,7 +72,14 @@ export function ProjectList() {
         {total} project{total !== 1 ? 's' : ''}
       </Typography>
       {projects.map((project) => (
-        <ProjectCard key={project.id} project={project} />
+        <ProjectCard
+          key={project.id}
+          project={project}
+          selected={project.id === selectedProjectId}
+          onSelect={() =>
+            onSelectProject(project.id === selectedProjectId ? null : project)
+          }
+        />
       ))}
     </Box>
   );
