@@ -10,6 +10,7 @@ from app.models.project import Project
 from app.models.tag import Tag, ProjectTag
 from app.models.contributor import Contributor, ProjectContributor
 from app.models.project_link import ProjectLink
+from app.models.user import User
 
 __all__ = [
     "Base",
@@ -20,4 +21,5 @@ __all__ = [
     "Contributor",
     "ProjectContributor",
     "ProjectLink",
+    "User",
 ]

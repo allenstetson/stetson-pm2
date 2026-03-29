@@ -6,9 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.project import Project
-from app.schemas.project import BackupRecord, ProjectDetail, ProjectListResponse, ProjectSummary
+from app.models.user import User
+from app.schemas.project import BackupRecord, ProjectDetail, ProjectListResponse, ProjectSummary, VisibilityUpdate
 
 router = APIRouter(tags=["projects"])
 
@@ -21,6 +23,7 @@ def list_projects(
     category: Optional[str] = Query(default=None, description="Filter by category"),
     changed_since_backup: Optional[bool] = Query(default=None, description="Filter to projects changed since their last backup"),
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
 ) -> ProjectListResponse:
     """
     Return a paginated list of projects, with optional full-text search and
@@ -30,6 +33,11 @@ def list_projects(
     with null dates sorted last.
     """
     query = db.query(Project).filter(Project.archived == False)  # noqa: E712
+
+    # Non-admin visitors must never see sensitive projects — not even in counts.
+    is_admin = current_user is not None and current_user.role == "admin"
+    if not is_admin:
+        query = query.filter(Project.visibility != "sensitive")
 
     if q and q.strip():
         term = q.strip()
@@ -69,14 +77,19 @@ def list_projects(
 def get_project(
     project_id: UUID,
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
 ) -> ProjectDetail:
     """
     Return the full detail record for a single project.
 
-    Returns 404 if the project does not exist.
+    Returns 404 (not 403) for sensitive projects when the caller is not an
+    admin.  A 403 would confirm the project exists; 404 reveals nothing.
     """
     project = db.query(Project).filter(Project.id == project_id).first()
     if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    is_admin = current_user is not None and current_user.role == "admin"
+    if project.visibility == "sensitive" and not is_admin:
         raise HTTPException(status_code=404, detail="Project not found")
     return ProjectDetail.model_validate(project)
 
@@ -100,6 +113,30 @@ def record_backup(
     project.last_backup_at = datetime.now(tz=timezone.utc)
     project.backup_host = body.backup_host
     project.changed_since_backup = False
+    db.commit()
+    db.refresh(project)
+    return ProjectDetail.model_validate(project)
+
+
+@router.patch("/projects/{project_id}/visibility", response_model=ProjectDetail)
+def update_visibility(
+    project_id: UUID,
+    body: VisibilityUpdate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+) -> ProjectDetail:
+    """
+    Update a project's visibility label.  Admin-only.
+
+    Returns 403 unconditionally for non-admins (before checking project
+    existence) to avoid leaking whether a project exists.
+    """
+    if current_user is None or current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project.visibility = body.visibility
     db.commit()
     db.refresh(project)
     return ProjectDetail.model_validate(project)

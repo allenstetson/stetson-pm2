@@ -20,6 +20,16 @@ class Settings(BaseSettings):
     # e.g. "/volume1/Projects" on Synology, "//NAS/Projects" for UNC path.
     nas_root: str = "/volume1/Projects"
 
+    # ── Auth ─────────────────────────────────────────────────────────────
+    # Must be overridden with a strong random value before external exposure.
+    # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+    secret_key: str = "dev-secret-key-change-in-production"
+    # Admin account bootstrapped on first startup when the users table is empty.
+    admin_username: str = "admin"
+    admin_password: str = "changeme"
+    # JWT lifetime in hours.  8 h is a reasonable default for home use.
+    token_expire_hours: int = 8
+
     class Config:
         env_file = ".env"
         case_sensitive = False

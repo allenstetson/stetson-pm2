@@ -4,6 +4,7 @@ import { fetchProjects } from '../../api/projects';
 import { ProjectSummary } from '../../types/project';
 import { ProjectCard } from './ProjectCard';
 import { SearchFilterBar } from './SearchFilterBar';
+import { useAuth } from '../../auth/AuthContext';
 
 const DEBOUNCE_MS = 300;
 
@@ -13,6 +14,7 @@ interface ProjectListProps {
 }
 
 export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListProps) {
+  const { token } = useAuth()
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,7 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
           q: debouncedSearch || undefined,
           category: category || undefined,
           changedSinceBackup: changedSinceBackup || undefined,
+          token: token || undefined,
         });
         if (!cancelled) {
           setProjects(data.items);
@@ -68,7 +71,7 @@ export function ProjectList({ selectedProjectId, onSelectProject }: ProjectListP
 
     load();
     return () => { cancelled = true; };
-  }, [debouncedSearch, category, changedSinceBackup]);
+  }, [debouncedSearch, category, changedSinceBackup, token]);
 
   const hasFilters = debouncedSearch.trim() !== '' || category !== null || changedSinceBackup;
 

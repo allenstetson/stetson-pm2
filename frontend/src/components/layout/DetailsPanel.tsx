@@ -5,14 +5,18 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  MenuItem,
   Paper,
+  Select,
   Skeleton,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material'
-import { fetchProject } from '../../api/projects'
+import type { SelectChangeEvent } from '@mui/material/Select'
+import { fetchProject, updateProjectVisibility } from '../../api/projects'
 import { ProjectDetail, ProjectSummary } from '../../types/project'
+import { useAuth } from '../../auth/AuthContext'
 
 interface DetailsPanelProps {
   selectedProject: ProjectSummary | null
@@ -55,6 +59,7 @@ function Row({ label, value }: RowProps) {
 }
 
 export function DetailsPanel({ selectedProject }: DetailsPanelProps) {
+  const { isAdmin, token } = useAuth()
   const [detail, setDetail] = useState<ProjectDetail | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -68,13 +73,23 @@ export function DetailsPanel({ selectedProject }: DetailsPanelProps) {
     setLoading(true)
     setDetail(null)
 
-    fetchProject(selectedProject.id)
+    fetchProject(selectedProject.id, token || undefined)
       .then((d) => { if (!cancelled) setDetail(d) })
       .catch(() => { /* non-fatal — summary data already visible */ })
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
-  }, [selectedProject?.id])
+  }, [selectedProject?.id, token])
+
+  const handleVisibilityChange = async (e: SelectChangeEvent<string>) => {
+    if (!detail || !token) return
+    try {
+      const updated = await updateProjectVisibility(detail.id, e.target.value, token)
+      setDetail(updated)
+    } catch {
+      // silently ignore — admin will see the value hasn't changed
+    }
+  }
 
   return (
     <Paper
@@ -208,6 +223,37 @@ export function DetailsPanel({ selectedProject }: DetailsPanelProps) {
                 <Divider sx={{ my: 1 }} />
                 <Row label="Created" value={formatDatetime(detail.created_at)} />
                 <Row label="Updated" value={formatDatetime(detail.updated_at)} />
+
+                {/* ── Admin controls ── */}
+                {isAdmin && (
+                  <>
+                    <Divider sx={{ my: 1 }} />
+                    <Box>
+                      <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Admin
+                        </Typography>
+                        {detail.visibility === 'sensitive' && (
+                          <Chip label="SENSITIVE" size="small" color="error" />
+                        )}
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        Visibility
+                      </Typography>
+                      <Select
+                        value={detail.visibility}
+                        onChange={handleVisibilityChange}
+                        size="small"
+                        fullWidth
+                        sx={{ mt: 0.5 }}
+                      >
+                        {['family', 'school', 'work', 'sensitive'].map((v) => (
+                          <MenuItem key={v} value={v}>{v}</MenuItem>
+                        ))}
+                      </Select>
+                    </Box>
+                  </>
+                )}
               </>
             ) : null}
           </Stack>

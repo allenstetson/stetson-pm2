@@ -242,6 +242,11 @@ def scan_projects(root: str, db: Session, nas_root: str = "/volume1/Projects") -
                 name = humanize_name(folder_name)
                 file_count, disk_usage_bytes, media_types, files_changed_at = _collect_stats(project_entry)
 
+                # Projects in a folder named "sensitive" are automatically
+                # marked sensitive on creation.  This is set only on first
+                # discovery; admin can override it later via the UI.
+                initial_visibility = "sensitive" if category == "sensitive" else "family"
+
                 # Upsert on (folder_name, category)
                 project = (
                     db.query(Project)
@@ -265,6 +270,7 @@ def scan_projects(root: str, db: Session, nas_root: str = "/volume1/Projects") -
                         files_changed_at=files_changed_at,
                         last_scanned_at=now,
                         changed_since_backup=False,
+                        visibility=initial_visibility,
                     )
                     db.add(project)
                     result.created += 1

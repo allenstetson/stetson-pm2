@@ -31,10 +31,14 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-projects_user}:${DB_PASSWORD:-projects_password}@db:5432/${DB_NAME:-projects_db}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       PYTHONPATH: /app
-      # Mount ./sample_projects (or a real NAS share) to /mnt/projects.
-      # Swap the volume below or set PROJECTS_ROOT to a different path for production.
       PROJECTS_ROOT: ${PROJECTS_ROOT:-/mnt/projects}
       NAS_ROOT: ${NAS_ROOT:-/volume1/Projects}
+      # Auth — override all three before exposing the app externally.
+      # Generate a key: python -c "import secrets; print(secrets.token_hex(32))"
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      TOKEN_EXPIRE_HOURS: ${TOKEN_EXPIRE_HOURS:-8}
     volumes:
       - ./sample_projects:/mnt/projects:ro
     depends_on:
@@ -50,6 +54,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Set ADMIN_ROUTE in .env to a hard-to-guess path (e.g. a short GUID).
+        # This is baked into the frontend bundle at build time.
+        VITE_ADMIN_ROUTE: ${ADMIN_ROUTE:-/admin-5e8a2b9f4c1d}
     container_name: projects_frontend
     ports:
       - "${FRONTEND_PORT:-3000}:80"

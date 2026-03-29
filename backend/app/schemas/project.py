@@ -61,3 +61,9 @@ class BackupRecord(BaseModel):
     """Request body for POST /projects/{id}/backup."""
 
     backup_host: str = Field(min_length=1, max_length=200)
+
+
+class VisibilityUpdate(BaseModel):
+    """Request body for PATCH /projects/{id}/visibility."""
+
+    visibility: str = Field(pattern="^(family|school|work|sensitive)$")
