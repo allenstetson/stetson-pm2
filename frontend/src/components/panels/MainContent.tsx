@@ -1,5 +1,6 @@
 import { Box, Paper, Typography } from '@mui/material'
 import { PageType } from '../layout/Sidebar'
+import { ProjectList } from '../projects/ProjectList'
 
 interface MainContentProps {
   currentPage: PageType
@@ -29,14 +30,18 @@ export function MainContent({ currentPage }: MainContentProps) {
   const content = PAGE_CONTENT[currentPage]
 
   return (
-    <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5' }}>
+    <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
       <Paper sx={{ p: 3 }}>
         <Typography variant="h5" sx={{ mb: 2 }}>
           {content.title}
         </Typography>
-        <Typography variant="body2" color="textSecondary">
-          {content.description}
-        </Typography>
+        {currentPage === 'projects' ? (
+          <ProjectList />
+        ) : (
+          <Typography variant="body2" color="textSecondary">
+            {content.description}
+          </Typography>
+        )}
       </Paper>
     </Box>
   )
